@@ -1,6 +1,7 @@
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { PomodoroType } from "../pomodoroConfig"
+import { playPhaseTransitionSound, requestAudioPermission } from "../utils/audioUtils"
 
 type Phase = "work" | "shortBreak" | "longBreak"
 
@@ -15,6 +16,8 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
   const [cycle, setCycle] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(config.workDuration * 60)
   const [isRunning, setIsRunning] = useState(false)
+  const [audioEnabled, setAudioEnabled] = useState(false)
+  const previousPhaseRef = useRef<Phase>("work")
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -28,11 +31,15 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
 
   useEffect(() => {
     if (secondsLeft === 0) {
+      let newPhase: Phase
+      
       if (phase === "work") {
         if (cycle < config.cycles - 1) {
+          newPhase = "shortBreak"
           setPhase("shortBreak")
           setSecondsLeft(config.shortBreak * 60)
         } else {
+          newPhase = "longBreak"
           setPhase("longBreak")
           setSecondsLeft(config.longBreak * 60)
         }
@@ -42,14 +49,38 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
         } else if (phase === "shortBreak") {
           setCycle(cycle + 1)
         }
+        newPhase = "work"
         setPhase("work")
         setSecondsLeft(config.workDuration * 60)
       }
+
+      if (audioEnabled && previousPhaseRef.current !== newPhase) {
+        playPhaseTransitionSound(newPhase)
+      }
+      previousPhaseRef.current = newPhase
     }
-  }, [secondsLeft, phase, cycle, config])
+  }, [secondsLeft, phase, cycle, config, audioEnabled])
+
+  useEffect(() => {
+    if (isRunning && !audioEnabled) {
+      requestAudioPermission().then(setAudioEnabled)
+    }
+  }, [isRunning, audioEnabled])
 
   const toggleTimer = () => {
     setIsRunning(!isRunning)
+  }
+
+  const toggleAudio = async () => {
+    if (!audioEnabled) {
+      const permission = await requestAudioPermission()
+      if (permission) {
+        setAudioEnabled(true)
+        setTimeout(() => playPhaseTransitionSound('work'), 100)
+      }
+    } else {
+      setAudioEnabled(false)
+    }
   }
 
   const resetTimer = () => {
@@ -137,6 +168,21 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
             hover:from-gray-600 hover:to-gray-700 text-white"
         >
           🔄 Reset
+        </button>
+      </div>
+
+      <div className="flex items-center justify-center mb-6">
+        <button
+          onClick={toggleAudio}
+          className={`flex items-center space-x-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-300 
+            transform hover:scale-105 active:scale-95 ${
+              audioEnabled
+                ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+            }`}
+        >
+          <span className="text-lg">{audioEnabled ? "🔊" : "🔇"}</span>
+          <span>Audio Alerts</span>
         </button>
       </div>
 
