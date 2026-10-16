@@ -1,7 +1,6 @@
 import type React from "react"
 import { memo } from "react"
 
-// 5x7 bitmap font for the timer display
 const GLYPHS: Record<string, string[]> = {
   "0": [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."],
   "1": ["..#..", ".##..", "..#..", "..#..", "..#..", "..#..", ".###."],

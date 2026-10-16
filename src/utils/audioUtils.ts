@@ -1,15 +1,10 @@
-// Tiny chiptune engine: NES-style pulse, triangle and noise channels synthesized with the Web Audio API.
-
 type Phase = "work" | "shortBreak" | "longBreak"
 type Wave = "pulse12" | "pulse25" | "pulse50" | "triangle" | "noise"
 export type UiSound = "select" | "start" | "pause" | "reset" | "back" | "toggleOn" | "tick"
 
 interface Note {
-  // Note name ("C5", "F#4"), frequency in Hz, or null for a rest
   note: string | number | null
-  // Length in beats
   beats: number
-  // Optional pitch slide target
   slideTo?: string | number
 }
 
@@ -53,7 +48,6 @@ const toFrequency = (note: string | number): number => {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
-// Band-limited pulse wave with the given duty cycle, built from its Fourier series
 const getPulseWave = (ctx: AudioContext, duty: number) => {
   const cached = pulseWaves.get(duty)
   if (cached) return cached
@@ -68,7 +62,6 @@ const getPulseWave = (ctx: AudioContext, duty: number) => {
   return wave
 }
 
-// 1-bit noise, like the NES noise channel
 const getNoiseBuffer = (ctx: AudioContext) => {
   if (noiseBuffer) return noiseBuffer
   noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
@@ -86,7 +79,6 @@ const playTone = (ctx: AudioContext, wave: Wave, note: Note, start: number, dura
   const gain = ctx.createGain()
   gain.connect(masterGain)
 
-  // Stepped envelope: instant attack, short decay to a sustain level, quick release
   const end = start + duration
   gain.gain.setValueAtTime(volume, start)
   gain.gain.setValueAtTime(volume * 0.75, start + Math.min(0.04, duration * 0.3))
@@ -137,7 +129,6 @@ const playSong = (tracks: Track[], bpm: number) => {
   })
 }
 
-// Shorthand: "C5:1 E5:0.5 -:1" -> notes ("-" is a rest)
 const seq = (pattern: string): Note[] =>
   pattern
     .trim()
@@ -149,7 +140,6 @@ const seq = (pattern: string): Note[] =>
     })
 
 const PHASE_SONGS: Record<Phase, { bpm: number; tracks: Track[] }> = {
-  // "Power up!" — back to focus
   work: {
     bpm: 300,
     tracks: [
@@ -158,7 +148,6 @@ const PHASE_SONGS: Record<Phase, { bpm: number; tracks: Track[] }> = {
       { wave: "triangle", volume: 0.6, notes: seq("C3:2 G3:2 C4:2 G3:2 C3:4") },
     ],
   },
-  // Coin + gentle descending melody — short break
   shortBreak: {
     bpm: 240,
     tracks: [
@@ -166,7 +155,6 @@ const PHASE_SONGS: Record<Phase, { bpm: number; tracks: Track[] }> = {
       { wave: "triangle", volume: 0.5, notes: seq("-:3.5 C4:1 G3:1 C3:3") },
     ],
   },
-  // Level clear fanfare — long break
   longBreak: {
     bpm: 400,
     tracks: [
@@ -217,11 +205,9 @@ export const setSoundEnabled = (enabled: boolean) => {
   try {
     localStorage.setItem(STORAGE_KEY, enabled ? "on" : "off")
   } catch {
-    // Storage unavailable (private mode, etc.) — the setting just won't persist
   }
 }
 
-// Must be called from a user gesture so browsers allow the AudioContext to start
 export const requestAudioPermission = async (): Promise<boolean> => {
   try {
     const ctx = getContext()

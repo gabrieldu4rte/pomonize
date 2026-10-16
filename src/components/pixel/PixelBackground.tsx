@@ -1,7 +1,6 @@
 import type React from "react"
 import { useEffect, useRef } from "react"
 
-// Size of one "art pixel" in CSS pixels
 const PIXEL = 4
 
 const SKY_BANDS = ["#0b1026", "#111d35", "#1D2B53", "#2b2557", "#422136", "#7E2553"]
@@ -10,7 +9,6 @@ const NEAR_HILLS = "#13102a"
 const GRASS = "#008751"
 const STAR_COLORS = ["#FFF1E8", "#FFEC27", "#29ADFF", "#FFCCAA"]
 
-// 4x4 Bayer matrix for ordered dithering between sky bands
 const BAYER = [
   [0, 8, 2, 10],
   [12, 4, 14, 6],
@@ -26,7 +24,6 @@ const CLOUD = [
   ".llllllllllll.",
 ]
 
-// Small deterministic PRNG so the scene is identical on every load
 const mulberry32 = (seed: number) => () => {
   seed |= 0
   seed = (seed + 0x6d2b79f5) | 0
@@ -76,7 +73,6 @@ const PixelBackground: React.FC = () => {
       const s = scenery.getContext("2d")
       if (!s) return
 
-      // Dithered sky gradient
       const image = s.createImageData(width, height)
       const rgb = SKY_BANDS.map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)))
       for (let y = 0; y < height; y++) {
@@ -94,7 +90,6 @@ const PixelBackground: React.FC = () => {
       }
       s.putImageData(image, 0, 0)
 
-      // Moon: lit core offset to the top-left leaves a shaded rim, plus a few craters
       const moonR = 9
       const moonX = Math.round(width * 0.84)
       const moonY = Math.max(40, Math.round(height * 0.22))
@@ -112,7 +107,6 @@ const PixelBackground: React.FC = () => {
       s.fillRect(moonX + 1, moonY + 2, 3, 2)
       s.fillRect(moonX - 3, moonY + 4, 1, 1)
 
-      // Two layers of hills
       const far = ridge(width, height * 0.8, height * 0.18, rand)
       const near = ridge(width, height * 0.93, height * 0.1, rand)
       far.forEach((top, x) => {
@@ -171,7 +165,6 @@ const PixelBackground: React.FC = () => {
     let frame = 0
     let last = 0
     const loop = (time: number) => {
-      // ~10 fps is plenty for a pixel scene and keeps CPU usage low
       if (time - last > 100) {
         draw(time)
         last = time

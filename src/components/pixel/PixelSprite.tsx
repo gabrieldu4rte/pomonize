@@ -7,7 +7,6 @@ interface PixelSpriteProps {
   scale?: number
   className?: string
   title?: string
-  // Paint every opaque pixel with this color (used for "empty" silhouettes)
   mono?: string
 }
 
@@ -16,7 +15,6 @@ const PixelSprite: React.FC<PixelSpriteProps> = ({ sprite, scale = 3, className,
   const width = Math.max(...sprite.map((row) => row.length))
   const rects: React.ReactNode[] = []
 
-  // Merge horizontal runs of the same color into a single rect
   sprite.forEach((row, y) => {
     let x = 0
     while (x < row.length) {

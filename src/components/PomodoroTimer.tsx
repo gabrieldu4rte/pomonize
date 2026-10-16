@@ -39,11 +39,9 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
   const [secondsLeft, setSecondsLeft] = useState(config.workDuration * 60)
   const [isRunning, setIsRunning] = useState(false)
   const [audioEnabled, setAudioEnabled] = useState(isSoundEnabled)
-  // Bumped whenever a new countdown starts (phase change or reset) so the clock re-arms
   const [segment, setSegment] = useState(0)
   const [transitions, setTransitions] = useState(0)
 
-  // The countdown is based on wall-clock time, so it stays accurate in throttled background tabs
   const endAtRef = useRef(0)
   const remainingMsRef = useRef(config.workDuration * 60 * 1000)
   const lastBeepRef = useRef("")
@@ -81,7 +79,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
 
     const duration = durationFor(newPhase)
     remainingMsRef.current = duration * 1000
-    // Push the deadline forward right away so a stale tick can't report 0 again
     endAtRef.current = Date.now() + duration * 1000
     setPhase(newPhase)
     setSecondsLeft(duration)
@@ -93,7 +90,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
     }
   }, [secondsLeft, phase, cycle, config, audioEnabled, durationFor])
 
-  // 8-bit countdown beeps for the last 3 seconds of every phase
   useEffect(() => {
     const beepKey = `${segment}-${secondsLeft}`
     if (isRunning && audioEnabled && secondsLeft > 0 && secondsLeft <= 3 && lastBeepRef.current !== beepKey) {
@@ -107,7 +103,6 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
       remainingMsRef.current = Math.max(0, endAtRef.current - Date.now())
       playUiSound("pause")
     } else {
-      // Starting is a user gesture, the right moment to unlock audio
       requestAudioPermission()
       playUiSound("start")
     }

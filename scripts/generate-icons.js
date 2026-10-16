@@ -1,5 +1,3 @@
-// Renders the pixel-art tomato sprite into every favicon/app icon in public/.
-// Usage: node scripts/generate-icons.js
 const fs = require("fs")
 const path = require("path")
 const zlib = require("zlib")
@@ -7,7 +5,6 @@ const ts = require("typescript")
 
 const root = path.join(__dirname, "..")
 
-// Load the sprite data straight from the app source so icons and UI never drift apart
 const loadSprites = () => {
   const source = fs.readFileSync(path.join(root, "src/components/pixel/sprites.ts"), "utf8")
   const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } })
@@ -45,11 +42,11 @@ const encodePng = (size, pixels) => {
   const header = Buffer.alloc(13)
   header.writeUInt32BE(size, 0)
   header.writeUInt32BE(size, 4)
-  header[8] = 8 // bit depth
-  header[9] = 6 // RGBA
+  header[8] = 8
+  header[9] = 6
   const raw = Buffer.alloc(size * (size * 4 + 1))
   for (let y = 0; y < size; y++) {
-    raw[y * (size * 4 + 1)] = 0 // no filter
+    raw[y * (size * 4 + 1)] = 0
     pixels.copy(raw, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4)
   }
   return Buffer.concat([
@@ -60,7 +57,6 @@ const encodePng = (size, pixels) => {
   ])
 }
 
-// Draws the sprite scaled by an integer factor, centered, over an optional background
 const renderIcon = (size, background) => {
   const spriteSize = TOMATO.length
   const padding = background ? Math.round(size * 0.08) : 0
@@ -88,7 +84,6 @@ const renderIcon = (size, background) => {
   return encodePng(size, pixels)
 }
 
-// ICO container holding PNG images
 const encodeIco = (images) => {
   const header = Buffer.alloc(6)
   header.writeUInt16LE(1, 2)

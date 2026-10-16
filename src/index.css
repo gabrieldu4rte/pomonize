@@ -37,7 +37,6 @@ code {
   image-rendering: pixelated;
 }
 
-/* Notched-corner pixel frame shared by panels and buttons */
 .pixel-frame {
   border: var(--px) solid var(--ink);
   clip-path: polygon(
@@ -56,7 +55,6 @@ code {
   );
 }
 
-/* Hard drop shadow; lives on a wrapper because clip-path would cut it off */
 .pixel-shadow {
   filter: drop-shadow(var(--px) var(--px) 0 rgba(0, 0, 0, 0.55));
 }
@@ -113,7 +111,6 @@ code {
   font-family: "Press Start 2P", monospace;
 }
 
-/* Title with stepped 8-bit shadow */
 .pixel-title {
   font-family: "Press Start 2P", monospace;
   color: #ffec27;
@@ -143,7 +140,6 @@ code {
   color: #ff77a8;
 }
 
-/* LCD screen around the timer */
 .pixel-screen {
   position: relative;
   background: #0b1026;
@@ -164,7 +160,6 @@ code {
   background: #1d2b53;
 }
 
-/* Stepped animations — no smooth tweening in 8-bit land */
 @keyframes pixel-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }

@@ -5,7 +5,6 @@ const timeLeft = () => screen.getByRole("timer").getAttribute("aria-label")
 const phaseName = () => screen.getByTestId("phase-name").textContent
 
 const advance = (seconds: number) => {
-  // Step in small chunks so React flushes each phase transition
   for (let i = 0; i < seconds * 4; i++) {
     act(() => {
       jest.advanceTimersByTime(250)
@@ -64,7 +63,7 @@ test("start, pause and reset", () => {
 
 test("runs through every phase of a full cycle", () => {
   render(<App />)
-  fireEvent.click(screen.getByText("Pomo Light")) // 5 work / 2 break / 10 long, 2 cycles
+  fireEvent.click(screen.getByText("Pomo Light"))
   fireEvent.click(screen.getByText("Start"))
 
   advance(5 * 60)

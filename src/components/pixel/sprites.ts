@@ -1,9 +1,5 @@
-// Pixel art drawn as text grids. Each character is one pixel:
-// '.' is transparent, 'c' is currentColor and every other character is a key of PALETTE.
-
 export type Sprite = readonly string[]
 
-// PICO-8 palette
 export const PALETTE: Record<string, string> = {
   k: "#000000",
   n: "#1D2B53",
