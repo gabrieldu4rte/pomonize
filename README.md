@@ -12,6 +12,8 @@ Classic – The traditional Pomodoro (25/5) for tried-and-tested productivity.
 
 Hardcore – For deep focus sessions with longer sprints and minimal breaks.
 
+Retro 8-bit look – Every sprite, the night-sky background and the app icons are pixel art generated from code (no image assets), and all sound effects are chiptune jingles synthesized live with the Web Audio API.
+
 Simple, Minimalist UI – Clean interface to help you focus without distractions.
 
 Focus-Oriented Design – Everything is built to keep you in the zone.
@@ -58,6 +60,10 @@ The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+
+### `npm run icons`
+
+Regenerates the favicons and app icons in `public/` from the pixel-art tomato sprite in `src/components/pixel/sprites.ts`.
 
 ### `npm run eject`
 

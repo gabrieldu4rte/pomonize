@@ -1,7 +1,27 @@
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type { PomodoroType } from "../pomodoroConfig"
-import { playPhaseTransitionSound, requestAudioPermission } from "../utils/audioUtils"
+import {
+  isSoundEnabled,
+  playPhaseTransitionSound,
+  playUiSound,
+  requestAudioPermission,
+  setSoundEnabled,
+} from "../utils/audioUtils"
+import PixelDigits from "./pixel/PixelDigits"
+import PixelSprite from "./pixel/PixelSprite"
+import {
+  ARROW_LEFT,
+  COFFEE,
+  PAUSE,
+  PLAY,
+  RESET,
+  SPEAKER_OFF,
+  SPEAKER_ON,
+  STAR,
+  TARGET,
+  TOMATO,
+} from "./pixel/sprites"
 
 type Phase = "work" | "shortBreak" | "longBreak"
 
@@ -11,63 +31,86 @@ interface PomodoroTimerProps {
   typeName: string
 }
 
+const PROGRESS_CELLS = 20
+
 const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection, typeName }) => {
   const [phase, setPhase] = useState<Phase>("work")
   const [cycle, setCycle] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(config.workDuration * 60)
   const [isRunning, setIsRunning] = useState(false)
-  const [audioEnabled, setAudioEnabled] = useState(false)
-  const previousPhaseRef = useRef<Phase>("work")
+  const [audioEnabled, setAudioEnabled] = useState(isSoundEnabled)
+  // Bumped whenever a new countdown starts (phase change or reset) so the clock re-arms
+  const [segment, setSegment] = useState(0)
+  const [transitions, setTransitions] = useState(0)
+
+  // The countdown is based on wall-clock time, so it stays accurate in throttled background tabs
+  const endAtRef = useRef(0)
+  const remainingMsRef = useRef(config.workDuration * 60 * 1000)
+  const lastBeepRef = useRef("")
+
+  const durationFor = useCallback(
+    (p: Phase) => (p === "work" ? config.workDuration : p === "shortBreak" ? config.shortBreak : config.longBreak) * 60,
+    [config],
+  )
 
   useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (isRunning) {
-      timer = setInterval(() => {
-        setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0))
-      }, 1000)
+    if (!isRunning) return
+    endAtRef.current = Date.now() + remainingMsRef.current
+    const tick = () => {
+      const remainingMs = Math.max(0, endAtRef.current - Date.now())
+      setSecondsLeft(Math.ceil(remainingMs / 1000))
     }
-    return () => clearInterval(timer)
-  }, [isRunning])
+    const timer = setInterval(tick, 250)
+    document.addEventListener("visibilitychange", tick)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener("visibilitychange", tick)
+    }
+  }, [isRunning, segment])
 
   useEffect(() => {
-    if (secondsLeft === 0) {
-      let newPhase: Phase
-      
-      if (phase === "work") {
-        if (cycle < config.cycles - 1) {
-          newPhase = "shortBreak"
-          setPhase("shortBreak")
-          setSecondsLeft(config.shortBreak * 60)
-        } else {
-          newPhase = "longBreak"
-          setPhase("longBreak")
-          setSecondsLeft(config.longBreak * 60)
-        }
-      } else {
-        if (phase === "longBreak") {
-          setCycle(0)
-        } else if (phase === "shortBreak") {
-          setCycle(cycle + 1)
-        }
-        newPhase = "work"
-        setPhase("work")
-        setSecondsLeft(config.workDuration * 60)
-      }
+    if (secondsLeft > 0) return
 
-      if (audioEnabled && previousPhaseRef.current !== newPhase) {
-        playPhaseTransitionSound(newPhase)
-      }
-      previousPhaseRef.current = newPhase
+    let newPhase: Phase
+    if (phase === "work") {
+      newPhase = cycle < config.cycles - 1 ? "shortBreak" : "longBreak"
+    } else {
+      newPhase = "work"
+      setCycle(phase === "longBreak" ? 0 : cycle + 1)
     }
-  }, [secondsLeft, phase, cycle, config, audioEnabled])
 
+    const duration = durationFor(newPhase)
+    remainingMsRef.current = duration * 1000
+    // Push the deadline forward right away so a stale tick can't report 0 again
+    endAtRef.current = Date.now() + duration * 1000
+    setPhase(newPhase)
+    setSecondsLeft(duration)
+    setSegment((s) => s + 1)
+    setTransitions((t) => t + 1)
+
+    if (audioEnabled) {
+      playPhaseTransitionSound(newPhase)
+    }
+  }, [secondsLeft, phase, cycle, config, audioEnabled, durationFor])
+
+  // 8-bit countdown beeps for the last 3 seconds of every phase
   useEffect(() => {
-    if (isRunning && !audioEnabled) {
-      requestAudioPermission().then(setAudioEnabled)
+    const beepKey = `${segment}-${secondsLeft}`
+    if (isRunning && audioEnabled && secondsLeft > 0 && secondsLeft <= 3 && lastBeepRef.current !== beepKey) {
+      lastBeepRef.current = beepKey
+      playUiSound("tick")
     }
-  }, [isRunning, audioEnabled])
+  }, [secondsLeft, segment, isRunning, audioEnabled])
 
   const toggleTimer = () => {
+    if (isRunning) {
+      remainingMsRef.current = Math.max(0, endAtRef.current - Date.now())
+      playUiSound("pause")
+    } else {
+      // Starting is a user gesture, the right moment to unlock audio
+      requestAudioPermission()
+      playUiSound("start")
+    }
     setIsRunning(!isRunning)
   }
 
@@ -75,19 +118,29 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
     if (!audioEnabled) {
       const permission = await requestAudioPermission()
       if (permission) {
+        setSoundEnabled(true)
         setAudioEnabled(true)
-        setTimeout(() => playPhaseTransitionSound('work'), 100)
+        playUiSound("toggleOn")
       }
     } else {
+      setSoundEnabled(false)
       setAudioEnabled(false)
     }
   }
 
   const resetTimer = () => {
+    playUiSound("reset")
     setIsRunning(false)
     setPhase("work")
     setCycle(0)
     setSecondsLeft(config.workDuration * 60)
+    remainingMsRef.current = config.workDuration * 60 * 1000
+    setSegment((s) => s + 1)
+  }
+
+  const handleChangeType = () => {
+    playUiSound("back")
+    onResetSelection()
   }
 
   const formatTime = (secs: number) => {
@@ -99,116 +152,131 @@ const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ config, onResetSelection,
   const getPhaseInfo = () => {
     switch (phase) {
       case "work":
-        return { name: "Focus Time", icon: "🎯", color: "rose" }
+        return { name: "Focus Time", icon: TARGET, color: "#FF004D", shadow: "#7E2553" }
       case "shortBreak":
-        return { name: "Short Break", icon: "☕", color: "blue" }
+        return { name: "Short Break", icon: COFFEE, color: "#29ADFF", shadow: "#065AB5" }
       case "longBreak":
-        return { name: "Long Break", icon: "🌟", color: "purple" }
+        return { name: "Long Break", icon: STAR, color: "#FFEC27", shadow: "#AB5236" }
     }
   }
 
   const phaseInfo = getPhaseInfo()
-  const progress = ((config.workDuration * 60 - secondsLeft) / (config.workDuration * 60)) * 100
+  const totalSeconds = durationFor(phase)
+  const progress = totalSeconds > 0 ? (totalSeconds - secondsLeft) / totalSeconds : 0
+  const filledCells = Math.round(progress * PROGRESS_CELLS)
+  const completedPomos = cycle + (phase === "work" ? 0 : 1)
+  const timeText = formatTime(secondsLeft)
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 border border-rose-100">
-      <div className="text-center mb-8">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-2">
+    <div className="pixel-frame pixel-panel p-5 md:p-7">
+      <div className="text-center mb-5">
+        <h2 className="font-pixel text-sm md:text-base text-[#1d2b53] mb-3">
           Pomodoro {typeName.charAt(0).toUpperCase() + typeName.slice(1)}
         </h2>
-        <div className="flex items-center justify-center space-x-2 text-lg">
-          <span className="text-2xl">{phaseInfo.icon}</span>
-          <span className={`font-semibold text-${phaseInfo.color}-600`}>{phaseInfo.name}</span>
+        <div className="flex items-center justify-center gap-3">
+          <PixelSprite sprite={phaseInfo.icon} scale={3} className={isRunning ? "anim-bob" : undefined} />
+          <span className="font-pixel text-xs md:text-sm" style={{ color: phaseInfo.shadow }} data-testid="phase-name">
+            {phaseInfo.name}
+          </span>
         </div>
       </div>
 
-      <div className="relative w-48 h-48 mx-auto mb-8">
-        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="45" stroke="currentColor" strokeWidth="2" fill="none" className="text-gray-200" />
-          <circle
-            cx="50"
-            cy="50"
-            r="45"
-            stroke="currentColor"
-            strokeWidth="3"
-            fill="none"
-            strokeDasharray={`${2 * Math.PI * 45}`}
-            strokeDashoffset={`${2 * Math.PI * 45 * (1 - progress / 100)}`}
-            className={`text-${phaseInfo.color}-500 transition-all duration-1000 ease-out`}
-            strokeLinecap="round"
+      <div
+        key={transitions}
+        className={`pixel-frame pixel-screen px-4 py-5 mb-5 ${transitions > 0 ? "anim-flash" : ""}`}
+      >
+        <div
+          role="timer"
+          aria-label={`${timeText} remaining`}
+          className="flex justify-center [&>svg]:max-w-full [&>svg]:h-auto"
+        >
+          <PixelDigits
+            text={timeText}
+            color={phaseInfo.color}
+            shadowColor={phaseInfo.shadow}
+            scale={8}
+            dimColon={isRunning && secondsLeft % 2 === 1}
           />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-4xl md:text-5xl font-mono font-bold text-gray-800">{formatTime(secondsLeft)}</div>
-            <div className="text-sm text-gray-500 mt-1">
-              Cycle {cycle + 1} of {config.cycles}
-            </div>
+        </div>
+
+        <div className="flex gap-[2px] mt-4" aria-hidden>
+          {Array.from({ length: PROGRESS_CELLS }, (_, i) => (
+            <div
+              key={i}
+              className="progress-cell"
+              style={i < filledCells ? { background: phaseInfo.color } : undefined}
+            />
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between mt-4">
+          <span className="font-pixel text-[10px] text-[#c2c3c7]">
+            Cycle {cycle + 1} of {config.cycles}
+          </span>
+          <div className="flex gap-1" aria-label={`${completedPomos} of ${config.cycles} pomodoros done`}>
+            {Array.from({ length: config.cycles }, (_, i) => (
+              <PixelSprite
+                key={i}
+                sprite={TOMATO}
+                scale={2}
+                mono={i < completedPomos || (i === cycle && phase === "work") ? undefined : "#2b2f4a"}
+                className={i === cycle && phase === "work" && isRunning ? "anim-blink" : undefined}
+              />
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-3">
         <button
           onClick={toggleTimer}
-          className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 
-            transform hover:scale-105 active:scale-95 ${
-              isRunning
-                ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
-                : "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
-            }`}
+          className={`pixel-frame pixel-btn ${isRunning ? "btn-red" : "btn-green"} flex-1 py-4 px-4 text-sm flex items-center justify-center gap-3`}
         >
-          {isRunning ? "⏸️ Pause" : "▶️ Start"}
+          <PixelSprite sprite={isRunning ? PAUSE : PLAY} scale={2} />
+          {isRunning ? "Pause" : "Start"}
         </button>
 
         <button
           onClick={resetTimer}
-          className="flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 
-            transform hover:scale-105 active:scale-95 bg-gradient-to-r from-gray-500 to-gray-600 
-            hover:from-gray-600 hover:to-gray-700 text-white"
+          className="pixel-frame pixel-btn btn-gray flex-1 py-4 px-4 text-sm flex items-center justify-center gap-3"
         >
-          🔄 Reset
+          <PixelSprite sprite={RESET} scale={2} />
+          Reset
         </button>
       </div>
 
-      <div className="flex items-center justify-center mb-6">
+      <div className="flex items-center justify-center mb-3">
         <button
           onClick={toggleAudio}
-          className={`flex items-center space-x-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-300 
-            transform hover:scale-105 active:scale-95 ${
-              audioEnabled
-                ? "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
-                : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-            }`}
+          aria-pressed={audioEnabled}
+          className={`pixel-frame pixel-btn ${audioEnabled ? "btn-blue" : "btn-gray"} py-3 px-4 text-[10px] flex items-center gap-3`}
         >
-          <span className="text-lg">{audioEnabled ? "🔊" : "🔇"}</span>
-          <span>Audio Alerts</span>
+          <PixelSprite sprite={audioEnabled ? SPEAKER_ON : SPEAKER_OFF} scale={2} />
+          <span>Audio Alerts {audioEnabled ? "On" : "Off"}</span>
         </button>
       </div>
 
       <button
-        onClick={onResetSelection}
-        className="w-full py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 
-          transform hover:scale-105 active:scale-95 bg-gradient-to-r from-orange-500 to-orange-600 
-          hover:from-orange-600 hover:to-orange-700 text-white"
+        onClick={handleChangeType}
+        className="pixel-frame pixel-btn btn-orange w-full py-4 px-4 text-xs flex items-center justify-center gap-3"
       >
-        ← Change Pomo Type
+        <PixelSprite sprite={ARROW_LEFT} scale={2} />
+        Change Pomo Type
       </button>
 
-      <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-2xl font-bold text-gray-800">{config.workDuration}</div>
-            <div className="text-xs text-gray-500">Work (min)</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-800">{config.shortBreak}</div>
-            <div className="text-xs text-gray-500">Break (min)</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-800">{config.cycles}</div>
-            <div className="text-xs text-gray-500">Cycles</div>
-          </div>
+      <div className="pixel-frame pixel-inset mt-5 p-3">
+        <div className="grid grid-cols-4 gap-2 text-center">
+          {[
+            { value: config.workDuration, label: "Work (min)" },
+            { value: config.shortBreak, label: "Break (min)" },
+            { value: config.longBreak, label: "Long (min)" },
+            { value: config.cycles, label: "Cycles" },
+          ].map(({ value, label }) => (
+            <div key={label}>
+              <div className="font-pixel text-base text-[#1d2b53]">{value}</div>
+              <div className="text-base leading-tight text-[#7e2553] mt-1">{label}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -2,16 +2,201 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --px: 4px;
+  --ink: #000000;
+  --paper: #fff1e8;
+  --paper-shade: #c2c3c7;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background: #1d2b53;
+  color: var(--paper);
+  font-family: "VT323", "Courier New", monospace;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  image-rendering: pixelated;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: "VT323", "Courier New", monospace;
+}
+
+::selection {
+  background: #ff004d;
+  color: var(--paper);
+}
+
+.pixel-background {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  image-rendering: pixelated;
+}
+
+/* Notched-corner pixel frame shared by panels and buttons */
+.pixel-frame {
+  border: var(--px) solid var(--ink);
+  clip-path: polygon(
+    0 var(--px),
+    var(--px) var(--px),
+    var(--px) 0,
+    calc(100% - var(--px)) 0,
+    calc(100% - var(--px)) var(--px),
+    100% var(--px),
+    100% calc(100% - var(--px)),
+    calc(100% - var(--px)) calc(100% - var(--px)),
+    calc(100% - var(--px)) 100%,
+    var(--px) 100%,
+    var(--px) calc(100% - var(--px)),
+    0 calc(100% - var(--px))
+  );
+}
+
+/* Hard drop shadow; lives on a wrapper because clip-path would cut it off */
+.pixel-shadow {
+  filter: drop-shadow(var(--px) var(--px) 0 rgba(0, 0, 0, 0.55));
+}
+
+.pixel-panel {
+  background: var(--paper);
+  color: #1d2b53;
+  box-shadow: inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--paper-shade), inset var(--px) var(--px) 0 0 #ffffff;
+}
+
+.pixel-inset {
+  background: #ffccaa;
+  box-shadow: inset var(--px) var(--px) 0 0 #e0a882;
+}
+
+.pixel-btn {
+  --btn: #29adff;
+  --btn-light: #8fd4ff;
+  --btn-dark: #065ab5;
+  position: relative;
+  background: var(--btn);
+  color: var(--paper);
+  font-family: "Press Start 2P", monospace;
+  line-height: 1.4;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  user-select: none;
+  box-shadow: inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--btn-dark), inset var(--px) var(--px) 0 0 var(--btn-light);
+  transition: transform 60ms steps(1), filter 60ms steps(1);
+}
+
+.pixel-btn:hover {
+  filter: brightness(1.12);
+}
+
+.pixel-btn:active {
+  transform: translateY(var(--px));
+  box-shadow: inset var(--px) var(--px) 0 0 var(--btn-dark);
+}
+
+.pixel-btn:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--px) #ffec27, inset calc(var(--px) * -2) calc(var(--px) * -2) 0 0 var(--btn-dark);
+}
+
+.btn-green { --btn: #008751; --btn-light: #00e436; --btn-dark: #00502f; }
+.btn-blue { --btn: #065ab5; --btn-light: #29adff; --btn-dark: #1d2b53; }
+.btn-purple { --btn: #7e2553; --btn-light: #ff77a8; --btn-dark: #42102c; }
+.btn-red { --btn: #be1250; --btn-light: #ff004d; --btn-dark: #6e0b30; }
+.btn-gray { --btn: #5f574f; --btn-light: #a39b93; --btn-dark: #2e2a26; }
+.btn-orange { --btn: #d1600f; --btn-light: #ffa300; --btn-dark: #7a3307; }
+
+.font-pixel {
+  font-family: "Press Start 2P", monospace;
+}
+
+/* Title with stepped 8-bit shadow */
+.pixel-title {
+  font-family: "Press Start 2P", monospace;
+  color: #ffec27;
+  text-shadow: 3px 0 0 #ff004d, 0 3px 0 #ff004d, 3px 3px 0 #ff004d, 6px 6px 0 #000000;
+  letter-spacing: 2px;
+}
+
+.pixel-header {
+  background: #0b1026;
+  border-bottom: var(--px) solid #000;
+  box-shadow: 0 var(--px) 0 0 #7e2553;
+}
+
+.pixel-footer {
+  background: rgba(11, 16, 38, 0.85);
+  border-top: var(--px) solid #000;
+  box-shadow: 0 calc(var(--px) * -1) 0 0 #7e2553;
+}
+
+.pixel-link {
+  color: #ffec27;
+  text-decoration: none;
+  border-bottom: 2px dashed currentColor;
+}
+
+.pixel-link:hover {
+  color: #ff77a8;
+}
+
+/* LCD screen around the timer */
+.pixel-screen {
+  position: relative;
+  background: #0b1026;
+  box-shadow: inset var(--px) var(--px) 0 0 #000000;
+}
+
+.pixel-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 4px);
+}
+
+.progress-cell {
+  flex: 1;
+  height: 12px;
+  background: #1d2b53;
+}
+
+/* Stepped animations — no smooth tweening in 8-bit land */
+@keyframes pixel-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes pixel-bob {
+  0%, 49% { transform: translateY(0); }
+  50%, 100% { transform: translateY(calc(var(--px) * -1)); }
+}
+
+@keyframes pixel-nudge {
+  0%, 49% { transform: translateX(0); }
+  50%, 100% { transform: translateX(var(--px)); }
+}
+
+@keyframes pixel-flash {
+  0%, 24% { filter: invert(1); }
+  25%, 49% { filter: none; }
+  50%, 74% { filter: invert(1); }
+  75%, 100% { filter: none; }
+}
+
+.anim-blink { animation: pixel-blink 1s steps(1) infinite; }
+.anim-bob { animation: pixel-bob 1s steps(1) infinite; }
+.group:hover .group-hover-nudge { animation: pixel-nudge 0.4s steps(1) infinite; }
+.anim-flash { animation: pixel-flash 0.6s steps(1) 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-blink,
+  .anim-bob,
+  .anim-flash,
+  .group:hover .group-hover-nudge {
+    animation: none;
+  }
 }
